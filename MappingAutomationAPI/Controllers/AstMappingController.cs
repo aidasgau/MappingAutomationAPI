@@ -39,17 +39,58 @@ public class AstMappingController : ControllerBase
 
         try
         {
+            // 1) Embed the description
             float[] issueVector = await _openAIService.GenerateEmbeddingAsync(req.Description);
 
+            // 2) Find top-K similar tests
             var matches = await _vectorDbService.FindSimilarTestsAsync(issueVector, DefaultTopK);
 
+            // 3) Threshold check
             bool requiresNewTest = matches.All(m => m.Similarity < SimilarityThreshold);
 
-            return Ok(new
+            // Prepare response payload
+            var response = new
             {
                 Matches = matches,
-                RequiresNewTest = requiresNewTest
-            });
+                RequiresNewTest = requiresNewTest,
+                MappingDecision = (string?)null,
+                NewTestScenario = (string?)null
+            };
+
+            if (!requiresNewTest)
+            {
+                string mappingDecision = null;
+                var decision = await _openAIService.GenerateMappingDecisionRaw(req, matches);
+                mappingDecision = decision.Content
+                                    .FirstOrDefault()?.Text
+                                ?? string.Empty;
+        
+                return Ok(new
+                {
+                    Matches = matches,
+                    RequiresNewTest = false,
+                    MappingDecision = mappingDecision,
+                    NewTestScenario = (string?)null
+                });
+            }
+            else
+            {
+                // 4b) No good match → generate a brand-new test scenario
+                var completion = await _openAIService.GenerateAutomatedTestDescriptionRaw(
+                    req.Description,
+                    req.Type,
+                    req.Title
+                );
+                var newScenario = completion.Content.FirstOrDefault()?.Text?.Trim()
+                                  ?? "<no output>";
+                return Ok(new
+                {
+                    Matches = matches,
+                    RequiresNewTest = true,
+                    MappingDecision = (string?)null,
+                    NewTestScenario = newScenario
+                });
+            }
         }
         catch (Exception ex)
         {
