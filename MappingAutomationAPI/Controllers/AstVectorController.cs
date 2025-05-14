@@ -1,5 +1,4 @@
-﻿// --- AstVectorController ---
-using MappingAutomationAPI.Services;
+﻿using MappingAutomationAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -30,7 +29,6 @@ public class AstVectorController : ControllerBase
         _logger = logger;
         _testDirectory = config["TestSettings:TestDirectory"];
 
-        // Assume TestDirectory ends in "<Module>/Tests"
         var moduleDir = Directory.GetParent(_testDirectory);
         _moduleName = moduleDir?.Name ?? string.Empty;
     }

@@ -48,7 +48,6 @@ public class AstWorkflowController : ControllerBase
                 TestScenario = testScenario.Content.FirstOrDefault()?.Text
             };
 
-            // TODO: Save to Omega 365, a workflow DB, or send to a queue
             return Ok(newTask);
         }
         catch (Exception ex)

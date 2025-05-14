@@ -39,16 +39,12 @@ public class AstMappingController : ControllerBase
 
         try
         {
-            // 1) Embed the description
             float[] issueVector = await _openAIService.GenerateEmbeddingAsync(req.Description);
 
-            // 2) Find top-K similar tests
             var matches = await _vectorDbService.FindSimilarTestsAsync(issueVector, DefaultTopK);
 
-            // 3) Threshold check
             bool requiresNewTest = matches.All(m => m.Similarity < SimilarityThreshold);
 
-            // Prepare response payload
             var response = new
             {
                 Matches = matches,
@@ -75,7 +71,6 @@ public class AstMappingController : ControllerBase
             }
             else
             {
-                // 4b) No good match → generate a brand-new test scenario
                 var completion = await _openAIService.GenerateAutomatedTestDescriptionRaw(
                     req.Description,
                     req.Type,

@@ -3,12 +3,12 @@
     public class MapWorkflowRequest
     {
         /// <summary>
-        /// Either "BUG" or "FR" (or however you label your tickets).
+        /// Either "BUG" or "FR".
         /// </summary>
         public string Type { get; set; }
 
         /// <summary>
-        /// The short title of the ticket.
+        /// The short title of the BUG/FR.
         /// </summary>
         public string Title { get; set; }
 

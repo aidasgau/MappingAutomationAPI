@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using MappingAutomationAPI.Models;     // for TestVectorEntity, SimilarTest
+using MappingAutomationAPI.Models;
 
 namespace MappingAutomationAPI.Data
 {
