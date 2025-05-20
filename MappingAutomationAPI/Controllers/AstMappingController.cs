@@ -3,6 +3,7 @@ using MappingAutomationAPI.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -39,32 +40,43 @@ public class AstMappingController : ControllerBase
 
         try
         {
-            float[] issueVector = await _openAIService.GenerateEmbeddingAsync(req.Description);
+            var swTotal = Stopwatch.StartNew();
 
+            var swOpenAi = Stopwatch.StartNew();
+            float[] issueVector = await _openAIService.GenerateEmbeddingAsync(req.Description);
+            swOpenAi.Stop();
+
+            var swVector = Stopwatch.StartNew();
             var matches = await _vectorDbService.FindSimilarTestsAsync(issueVector, DefaultTopK);
+            swVector.Stop();
+
+            swTotal.Stop();
 
             bool requiresNewTest = matches.All(m => m.Similarity < SimilarityThreshold);
 
-            var response = new
+            var baseResponse = new
             {
                 Matches = matches,
                 RequiresNewTest = requiresNewTest,
+                OpenAiLatencyMs = swOpenAi.ElapsedMilliseconds,
+                VectorDbLatencyMs = swVector.ElapsedMilliseconds,
+                TotalLatencyMs = swTotal.ElapsedMilliseconds,
                 MappingDecision = (string?)null,
                 NewTestScenario = (string?)null
             };
 
             if (!requiresNewTest)
             {
-                string mappingDecision = null;
                 var decision = await _openAIService.GenerateMappingDecisionRaw(req, matches);
-                mappingDecision = decision.Content
-                                    .FirstOrDefault()?.Text
-                                ?? string.Empty;
-        
+                var mappingDecision = decision.Content.FirstOrDefault()?.Text ?? string.Empty;
+
                 return Ok(new
                 {
-                    Matches = matches,
-                    RequiresNewTest = false,
+                    baseResponse.Matches,
+                    baseResponse.RequiresNewTest,
+                    baseResponse.OpenAiLatencyMs,
+                    baseResponse.VectorDbLatencyMs,
+                    baseResponse.TotalLatencyMs,
                     MappingDecision = mappingDecision,
                     NewTestScenario = (string?)null
                 });
@@ -76,12 +88,15 @@ public class AstMappingController : ControllerBase
                     req.Type,
                     req.Title
                 );
-                var newScenario = completion.Content.FirstOrDefault()?.Text?.Trim()
-                                  ?? "<no output>";
+                var newScenario = completion.Content.FirstOrDefault()?.Text?.Trim() ?? "<no output>";
+
                 return Ok(new
                 {
-                    Matches = matches,
-                    RequiresNewTest = true,
+                    baseResponse.Matches,
+                    baseResponse.RequiresNewTest,
+                    baseResponse.OpenAiLatencyMs,
+                    baseResponse.VectorDbLatencyMs,
+                    baseResponse.TotalLatencyMs,
                     MappingDecision = (string?)null,
                     NewTestScenario = newScenario
                 });
@@ -90,7 +105,11 @@ public class AstMappingController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error mapping workflow");
-            return StatusCode(500, new { Error = "Mapping failed", Details = ex.Message });
+            return StatusCode(500, new
+            {
+                Error = "Mapping failed",
+                Details = ex.Message
+            });
         }
     }
 }
